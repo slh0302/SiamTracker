@@ -1,0 +1,205 @@
+# -*- coding: utf-8 -*-
+# @Author  : Su LiHui
+# @Time    : 10/8/18 2:00 PM
+
+import os
+import numpy as np
+import cv2
+import torch
+from mcode.net import SiamRPNBIG
+from mcode.run_SiamRPN import SiamRPN_init
+
+def IOU(rect1, rect2):
+    '''
+    Compute overlap ratio between two rects
+    - rect: 1d array of [x,y,w,h] or
+            2d array of N x [x,y,w,h]
+    '''
+
+    if rect1.ndim == 1:
+        rect1 = rect1[None, :]
+    if rect2.ndim == 1:
+        rect2 = rect2[None, :]
+
+    left = np.maximum(rect1[:, 0], rect2[:, 0])
+    right = np.minimum(rect1[:, 0] + rect1[:, 2], rect2[:, 0] + rect2[:, 2])
+    top = np.maximum(rect1[:, 1], rect2[:, 1])
+    bottom = np.minimum(rect1[:, 1] + rect1[:, 3], rect2[:, 1] + rect2[:, 3])
+
+    intersect = np.maximum(0, right - left) * np.maximum(0, bottom - top)
+    union = rect1[:, 2] * rect1[:, 3] + rect2[:, 2] * rect2[:, 3] - intersect
+    iou = np.clip(intersect / union, 0, 1)
+    return iou
+
+def check_confidence(res):
+    new_res = {}
+    for key, value in res.items():
+        max_value = 0
+        max_coord = []
+        if len(value) > 0:
+            for i in value:
+                cdx = i[-1]
+                if max_value < cdx:
+                    max_value = cdx
+                    max_coord = i[:-1]
+                    max_coord[2] = max_coord[2] - max_coord[0]
+                    max_coord[3] = max_coord[3] - max_coord[1]
+        new_res[key] = max_coord
+    return new_res
+
+def calc_distance(list1, list2):
+    xc1 = float(list1[0] + list1[2] / 2)
+    yc1 = float(list1[1] + list1[3] / 2)
+
+    xc2 = float(list2[0] + list2[2] / 2)
+    yc2 = float(list2[1] + list2[3] / 2)
+
+    return np.sqrt((xc1 - xc2) ** 2 + (yc1 - yc2) ** 2)
+
+def judge_track_frame(track_res, detect_res, foot_type):
+    """
+    Handle track success frame
+    :param track_res: [x, y, w, h]
+    :param detect_res: {'foot_type' : [x,y,w,h]}
+    :param foot_type: foot type in ['front_foot_right', 'front_foot_left','back_foot_right', 'back_foot_left']
+    :return: checked frame results
+    """
+    all_type = ['front_foot_right', 'front_foot_left','back_foot_right', 'back_foot_left']
+    checked_res = {}
+    for foot in all_type:
+        if foot == foot_type:
+            checked_res[foot_type] = track_res
+            continue
+
+        if not foot in detect_res.keys():
+            checked_res[foot] = []
+            continue
+
+        other_type_res = detect_res[foot]
+        iou_res = IOU(np.array(track_res), np.array(other_type_res))
+        if iou_res[0] > 0.8:
+            checked_res[foot] = []
+        else:
+            checked_res[foot] = other_type_res
+    return  checked_res
+
+def judge_detect_frame(before_res, detect_res, foot_type):
+    """
+    Handle track failed frame
+    :param before_res: T-1 frame results
+    :param detect_res: T frame results of foot type = [x, y, w, h]
+    :param foot_type: target type
+    :return: [x,y,w,h] for target type
+    """
+    checked_res = {}
+    foot_res = []
+    if foot_type in detect_res.keys():
+        foot_res = detect_res[foot_type]
+    else:
+        print("Detect has no results")
+        return [-1, -1, -1, -1]
+    for foot in before_res.keys():
+        if foot != foot_type:
+            iou_res = IOU(np.array(before_res[foot]), np.array(foot_res))
+            if iou_res[0] > 0.8:
+               checked_res = [-1, -1, -1, -1]
+            else:
+               checked_res = foot_res
+    return  checked_res
+
+def rect_box(img, frame_box, scores=None, frame_id=None):
+    img = np.copy(img)
+    if scores != None:
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(img, '%d : %.2f' % (frame_id, scores), (15, 15), font, 0.5, (0, 0, 255), 1, False)
+    x = int(frame_box[0])
+    y = int(frame_box[1])
+    w = int(frame_box[2])
+    h = int(frame_box[3])
+    cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 3)
+    return img
+
+def save_pictures(img, pic_path, frame_id, frame_box):
+    if not os.path.exists(pic_path):
+        print("No path exist: " + pic_path)
+        return False
+    frame_name = "%09d.jpg" % frame_id
+    img = rect_box(img, frame_box)
+    save_pic = os.path.join(pic_path, frame_name)
+    cv2.imwrite(save_pic, img)
+    return True
+
+def init_net(gpus=0, rel_path=__file__):
+    # network start
+    net_file = os.path.join(rel_path, 'utils/model/siam/SiamRPNBIG.model')
+    net = SiamRPNBIG()
+    net.load_state_dict(torch.load(net_file))
+    net.eval().cuda(gpus)
+
+    # warm up
+    for i in range(10):
+        net.temple(torch.autograd.Variable(torch.FloatTensor(1, 3, 127, 127)).cuda())
+        net(torch.autograd.Variable(torch.FloatTensor(1, 3, 255, 255)).cuda())
+
+    return net
+
+def init_track(net, img, init_bbox):
+    res_dict = {}
+    res_dict['res'] = [init_bbox]
+    target_pos = np.array([init_bbox[0] + 0.5 * init_bbox[2], init_bbox[1] + 0.5 * init_bbox[3]])
+    target_sz = np.array(init_bbox[2:])
+    print(target_pos)
+    print(target_sz)
+    state = SiamRPN_init(img, target_pos, target_sz, net)
+    return state
+
+class drawBox:
+    def __init__(self, window_name, img):
+        self.start_point = (-1, -1)
+        self.end_point = (-1, -1)
+        self.img  = img
+        self.backup_img = np.copy(img)
+        self.drawing = False
+        self.finish = False
+        self.draw_begin = False
+        width = img.shape[1]
+        height = img.shape[0]
+        cv2.namedWindow(window_name, 0)
+        cv2.resizeWindow(window_name, width, height)
+        cv2.setMouseCallback(window_name, self.mouse_event)
+
+    def mouse_event(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.drawing = True
+            self.draw_begin = True
+            self.start_point = (x, y)
+
+        elif event == cv2.EVENT_MOUSEMOVE:
+            if self.drawing:
+                self.end_point = (x, y)
+
+        elif event == cv2.EVENT_LBUTTONUP:
+            self.drawing = False
+            if not (abs(x - self.start_point[0]) < 10 and abs(y - self.start_point[1]) < 10):
+                cv2.rectangle(self.img, self.start_point, (x, y), (0, 255, 0), 1)
+                self.finish = True
+                self.final_point = [self.start_point[0], self.start_point[1],
+                                    self.end_point[0] - self.start_point[0],
+                                    self.end_point[1] - self.start_point[1]]
+
+            self.end_point = self.start_point = (-1, -1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
