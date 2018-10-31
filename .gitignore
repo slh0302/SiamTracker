@@ -1,6 +1,8 @@
 mcode/MouseTrack/utils/model/right/*
 mcode/MouseTrack/utils/model/siam/*
 mcode/MouseTrack/resource/video/*
+mcode/MouseTrack/resource/
+mcode/MouseTrack/utils/model/
 SiamRPNBIG.model
 .idea
 __pycache__

@@ -3,10 +3,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import datasets
+import mcode.MouseTrack.lib.datasets as datasets
 import numpy as np
-from lib.model.utils.config import cfg
-from lib.datasets.factory import get_imdb
+from mcode.MouseTrack.lib.model.utils.config import cfg
+from mcode.MouseTrack.lib.datasets.factory import get_imdb
 import PIL
 import pdb
 

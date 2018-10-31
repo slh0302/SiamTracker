@@ -11,19 +11,21 @@ from __future__ import division
 from __future__ import print_function
 
 __sets = {}
-from lib.datasets.pascal_voc import pascal_voc
-from lib.datasets.coco import coco
-from lib.datasets.imagenet import imagenet
-from lib.datasets.vg import vg
-
+from mcode.MouseTrack.lib.datasets.pascal_voc import pascal_voc
+from mcode.MouseTrack.lib.datasets.coco import coco
+from mcode.MouseTrack.lib.datasets.imagenet import imagenet
+from mcode.MouseTrack.lib.datasets.vg import vg
+from mcode.MouseTrack.lib.model.utils.config import cfg
 import numpy as np
+import os
+__project_path__ = '/'.join(os.path.split(os.path.realpath(__file__))[0].split('/')[:-2])
 
 # Set up voc_<year>_<split>
 for year in ['2007', '2012']:
   for split in ['train', 'val', 'trainval', 'test']:
     name = 'voc_{}_{}'.format(year, split)
     # TODO: DATA PLACES
-    __sets[name] = (lambda split=split, year=year: pascal_voc(split, year, devkit_path="/home/slh/dataset/mouse/VOCRight"))
+    __sets[name] = (lambda split=split, year=year: pascal_voc(split, year, devkit_path=cfg.DATA_DIR))
 
 # Set up coco_2014_<split>
 for year in ['2014']:

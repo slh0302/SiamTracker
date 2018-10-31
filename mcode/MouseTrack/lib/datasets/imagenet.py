@@ -6,9 +6,9 @@ from __future__ import print_function
 # Written by Ross Girshick
 # --------------------------------------------------------
 
-import lib.datasets as dts
+import mcode.MouseTrack.lib.datasets as dts
 import os, sys
-from lib.datasets.imdb import imdb
+from mcode.MouseTrack.lib.datasets.imdb import imdb
 import xml.dom.minidom as minidom
 import numpy as np
 import scipy.sparse

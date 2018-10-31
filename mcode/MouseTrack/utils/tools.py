@@ -87,7 +87,7 @@ def judge_detect_frame(before_res, detect_res, foot_type):
     """
     Handle track failed frame
     :param before_res: T-1 frame results
-    :param detect_res: T frame results of foot type = [x, y, w, h]
+    :param detect_res: T frame results
     :param foot_type: target type
     :return: [x,y,w,h] for target type
     """
@@ -99,13 +99,55 @@ def judge_detect_frame(before_res, detect_res, foot_type):
         print("Detect has no results")
         return [-1, -1, -1, -1]
     for foot in before_res.keys():
-        if foot != foot_type:
+        if foot != foot_type and len(before_res[foot]) > 0:
             iou_res = IOU(np.array(before_res[foot]), np.array(foot_res))
             if iou_res[0] > 0.8:
                checked_res = [-1, -1, -1, -1]
             else:
                checked_res = foot_res
     return  checked_res
+
+def judge_track_res(track_res, detect_res, foot_type):
+    """
+    Handle track failed frame
+    :param track_res: T frame track results
+    :param detect_res: T frame results of foot type
+    :param foot_type: target type
+    :return: [x,y,w,h] for target type
+    """
+    checked_res = track_res
+    foot_res = []
+    if foot_type in detect_res.keys():
+        foot_res = detect_res[foot_type]
+    else:
+        return track_res
+
+    iou_foot = IOU(np.array(track_res), np.array(foot_res))
+
+    for foot in detect_res.keys():
+        if foot != foot_type and len(detect_res[foot]) > 0:
+            iou_res = IOU(np.array(detect_res[foot]), np.array(track_res))
+            if iou_res[0] > 0.5 and iou_foot[0] < 0.3:
+               checked_res = foot_res
+            else:
+               checked_res = track_res
+    return  checked_res
+
+def save_results(results, video_name, save_path):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    save_file = video_name.split('.')[0] + ".txt"
+    with open(os.path.join(save_path, save_file), 'w') as f:
+        for item in results:
+            if len(item) < 5:
+                print("Warning: results length is less than 5, may be not right.")
+            x = int(item[1])
+            y = int(item[2])
+            w = int(item[3])
+            h = int(item[4])
+            f.write("%d %d %d %d %d %.2f\n" % (item[0], x, y, w, h, item[-1]))
+
 
 def rect_box(img, frame_box, scores=None, frame_id=None):
     img = np.copy(img)

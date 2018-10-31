@@ -6,9 +6,12 @@ import os
 import cv2
 import torch
 import numpy as np
+from torch.utils.data.sampler import Sampler
 from mcode.MouseTrack.lib.model.nms.nms_wrapper import nms
 from mcode.MouseTrack.lib.model.utils.config import cfg, cfg_from_file
 from mcode.MouseTrack.lib.model.faster_rcnn.resnet import resnet
+
+__detector_prefix_path__, _ = os.path.split(os.path.realpath(__file__))
 
 def check_confidence(res):
     new_res = {}
@@ -26,8 +29,33 @@ def check_confidence(res):
         new_res[key] = max_coord
     return new_res
 
+class sampler(Sampler):
+  def __init__(self, train_size, batch_size):
+    self.num_data = train_size
+    self.num_per_batch = int(train_size / batch_size)
+    self.batch_size = batch_size
+    self.range = torch.arange(0,batch_size).view(1, batch_size).long()
+    self.leftover_flag = False
+    if train_size % batch_size:
+      self.leftover = torch.arange(self.num_per_batch*batch_size, train_size).long()
+      self.leftover_flag = True
+
+  def __iter__(self):
+    rand_num = torch.randperm(self.num_per_batch).view(-1,1) * self.batch_size
+    self.rand_num = rand_num.expand(self.num_per_batch, self.batch_size) + self.range
+
+    self.rand_num_view = self.rand_num.view(-1)
+
+    if self.leftover_flag:
+      self.rand_num_view = torch.cat((self.rand_num_view, self.leftover),0)
+
+    return iter(self.rand_num_view)
+
+  def __len__(self):
+    return self.num_data
+
 class faster_rcnn:
-    def __init__(self, base_batch, class_agnostic, base_net=50, cfg_file='/home/slh/tf-project/mouse/faster_rcnn/cfgs/res50.yml',
+    def __init__(self, base_batch, class_agnostic, base_net=50, cfg_file=__detector_prefix_path__ + '/model/yml/res50.yml',
                  load_name='', gpu_id=0):
         np.random.seed()
         self.batch_size = base_batch
@@ -40,7 +68,7 @@ class faster_rcnn:
         self.fasterRCNN = resnet(self.pascal_classes, base_net, pretrained=False,
                            class_agnostic=False)
         self.fasterRCNN.create_architecture()
-        self.fasterRCNN.cuda(gpu_id)
+        self.fasterRCNN.cuda()
         self.fasterRCNN.eval()
 
         # load check point
@@ -73,10 +101,10 @@ class faster_rcnn:
         num_boxes = torch.LongTensor(1)
         gt_boxes = torch.FloatTensor(1)
 
-        im_data = im_data.cuda(gpus)
-        im_info = im_info.cuda(gpus)
-        num_boxes = num_boxes.cuda(gpus)
-        gt_boxes = gt_boxes.cuda(gpus)
+        im_data = im_data.cuda()
+        im_info = im_info.cuda()
+        num_boxes = num_boxes.cuda()
+        gt_boxes = gt_boxes.cuda()
 
         im_data.data.resize_(im_data_pt.size()).copy_(im_data_pt)
         im_info.data.resize_(im_info_pt.size()).copy_(im_info_pt)
@@ -97,12 +125,12 @@ class faster_rcnn:
             if cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
                 # Optionally normalize targets by a precomputed mean and stdev
                 if self.class_agnostic:
-                    box_deltas = box_deltas.view(-1, 4) * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda(gpus) \
-                                 + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda(gpus)
+                    box_deltas = box_deltas.view(-1, 4) * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda() \
+                                 + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda()
                     box_deltas = box_deltas.view(1, -1, 4)
                 else:
-                    box_deltas = box_deltas.view(-1, 4) * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda(gpus) \
-                                 + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda(gpus)
+                    box_deltas = box_deltas.view(-1, 4) * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda() \
+                                 + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda()
                     box_deltas = box_deltas.view(1, -1, 4 * len(self.pascal_classes))
 
             pred_boxes = self.bbox_transform_inv(boxes, box_deltas, 1)
@@ -260,3 +288,5 @@ class faster_rcnn:
         return blob
 
 # example in test_detector
+if __name__ == '__main__':
+    print(__file__)

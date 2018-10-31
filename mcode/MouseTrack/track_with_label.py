@@ -7,7 +7,7 @@ import torch
 import cv2
 import sys
 import numpy as np
-from mcode.MouseTrack.utils.tools import drawBox, init_net, init_track, save_pictures, rect_box
+from mcode.MouseTrack.utils.tools import drawBox, init_net, init_track, save_pictures, rect_box, save_results
 from mcode.run_SiamRPN import SiamRPN_track
 from mcode.utils import cxy_wh_2_rect
 
@@ -19,9 +19,10 @@ video_name = sys.argv[1]
 # 1. init step
 save_picture = False
 show_results = True
-save_path = __prefix_path__ + "resource/results/" + video_name
+save_path = __prefix_path__ + "/resource/results/label/" + video_name.split('.')[0]
+save_img_path = save_path + "/img"
 if not os.path.exists(save_path) and save_picture:
-    os.makedirs(save_path)
+    os.makedirs(save_img_path)
 net = init_net(gpus=0, rel_path=__prefix_path__)
 
 # net = []
@@ -47,6 +48,7 @@ while(cap.isOpened()):
             first_frame = False
         else:
             need_start = False
+        print("Draw at frame id %d" % frame_id)
         drawbox = drawBox('image%d' % frame_id, frame)
         while (True):
             temp = np.copy(frame)
@@ -81,14 +83,16 @@ while(cap.isOpened()):
                 drawbox.draw_begin = False
 
         if first_frame:
-            result_list.append([-1,-1,-1,-1])
+            result_list.append([frame_id, -1,-1,-1,-1,-1])
             print("The frame %d is skipped manually." % frame_id)
+            frame_id += 1
             continue
 
-        result_list.append(frame_bbox)
+        results = [frame_id] + frame_bbox + [1.0]
+        result_list.append(results)
         frame_state = init_track(net, frame, frame_bbox)
         if save_picture:
-            if not save_pictures(frame, save_path, frame_id, frame_bbox):
+            if not save_pictures(frame, save_img_path, frame_id, frame_bbox):
                 print("Save wrong")
                 exit()
         frame_id += 1
@@ -101,9 +105,9 @@ while(cap.isOpened()):
         need_start = True
     else:
         res = cxy_wh_2_rect(frame_state['target_pos'], frame_state['target_sz'])
-        result_list.append(res)
-        frame_id += 1
-        if show_results and frame_id % 10 == 0:
+        results = [frame_id] + res.tolist()  + [frame_state['score']]
+        result_list.append(results)
+        if show_results and frame_id % 5 == 0:
             # cv2.destroyAllWindows()
             tmp_img = rect_box(frame, res, frame_state['score'], frame_id)
             width = tmp_img.shape[1]
@@ -111,11 +115,49 @@ while(cap.isOpened()):
             cv2.namedWindow('results', 0)
             cv2.resizeWindow('results', width, height)
             cv2.imshow('results', tmp_img)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            wait_key = cv2.waitKey(1) & 0xFF
+            if wait_key == ord('q'):
                 cv2.destroyAllWindows()
                 break
+            elif wait_key == ord('s'):
+                before_frame_id = frame_id
+                tmp_frame_id = before_frame_id
+                while True:
+                    wait_key_tmp = cv2.waitKey(1) & 0xFF
+                    if wait_key_tmp == ord('p') and tmp_frame_id - 1 >= 0:
+                        tmp_frame_id -= 1
+                    elif wait_key_tmp == ord('n') and tmp_frame_id <= frame_id:
+                        tmp_frame_id += 1
+                    elif wait_key_tmp == ord('r'):
+                        cv2.destroyAllWindows()
+                        need_start = True
+                        # frame_id = tmp_frame_id
+                        while frame_id > 1 and result_list[frame_id - 1][0] > tmp_frame_id:
+                            result_list.pop()
+                            frame_id -= 1
+                        result_list.pop()
+                        print("return to frame id %d" % frame_id)
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id - 1)
+                        _, frame = cap.read()
+                        break
+                    elif wait_key_tmp == ord('q'):
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id)
+                        cv2.destroyAllWindows()
+                        break
+                    if tmp_frame_id != before_frame_id:
+                        print("Debug: frame id %d" % tmp_frame_id)
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, tmp_frame_id - 1)
+                        _, tmp_frame = cap.read()
+                        tmp_img = rect_box(tmp_frame, result_list[tmp_frame_id - 1][1:-1], result_list[tmp_frame_id - 1][-1] , tmp_frame_id)
+                        cv2.imshow('results', tmp_img)
+                        before_frame_id = tmp_frame_id
+        if not need_start:
+            if save_picture:
+                if not save_pictures(frame, save_img_path, frame_id, frame_bbox):
+                    print("Save wrong")
+                    exit()
+            frame_id += 1
 
 
-
-
-
+# print(result_list)
+save_results(result_list, video_name, save_path)

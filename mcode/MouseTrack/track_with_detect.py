@@ -7,10 +7,11 @@ import cv2
 import sys
 import torch
 import numpy as np
-from mcode.utils import cxy_wh_2_rect
+from mcode.utils import cxy_wh_2_rect, rect_2_cxy_wh
 from mcode.run_SiamRPN import SiamRPN_track
 from mcode.MouseTrack.utils.detector import faster_rcnn, check_confidence
-from mcode.MouseTrack.utils.tools import drawBox, init_net, init_track, judge_detect_frame, judge_track_frame, rect_box
+from mcode.MouseTrack.utils.tools import drawBox, init_net, init_track, \
+    judge_track_res, judge_detect_frame, judge_track_frame, rect_box, save_results, save_pictures
 
 
 """ 0. some variable """
@@ -35,7 +36,8 @@ else:
 save_picture = False
 show_results = False
 show_track_results = True
-save_path = __prefix_path__ + "resource/results/" + video_name
+save_path = __prefix_path__ + "/resource/results/detect/" + video_name.split('.')[0]
+save_img_path = save_path + "/img"
 detect_path = os.path.join(__prefix_path__, 'utils/model/', direction, 'faster_rcnn.pth')
 video_path = os.path.join(__prefix_path__, 'resource/video/' + video_name)
 
@@ -92,10 +94,15 @@ while(cap.isOpened()):
 
         if foot_type in res.keys():
             frame_bbox = res[foot_type]
-            frame_bbox = judge_detect_frame(track_frame_res, frame_bbox)
+            if frame_id != 1:
+                frame_bbox = judge_detect_frame(track_frame_res, res, foot_type)
+            if save_picture:
+                if not save_pictures(frame, save_img_path, frame_id, frame_bbox):
+                    print("Save wrong")
+                    exit()
         else:
             frame_bbox = [1, 1, 1, 1, 0]
-            print("Wrong Detect.")
+            print("No Detect results at frame %d" % frame_id)
 
         """ show results and modify """
         while show_results :
@@ -154,20 +161,21 @@ while(cap.isOpened()):
                 break
 
         if first_frame:
-            result_list.append([-1, -1, -1, -1])
+            result_list.append([frame_id, -1, -1, -1, -1, -1])
             print("The frame %d is skipped manually." % frame_id)
             continue
 
         if frame_bbox[-1] == 0:
             first_frame = True
             frame_bbox = [-1,-1,-1,-1]
-            result_list.append(frame_bbox[:4])
+            result_list.append([frame_id, -1, -1, -1, -1, -1])
             continue
 
 
         track_res = frame_bbox
         before_frame = frame
-        result_list.append(frame_bbox[:4])
+        results = [frame_id] + frame_bbox[:4] + [1.0]
+        result_list.append(results)
         frame_state = init_track(track_net, frame, frame_bbox)
         frame_id += 1
         continue
@@ -181,11 +189,17 @@ while(cap.isOpened()):
         need_start = True
     else:
         track_res = cxy_wh_2_rect(frame_state['target_pos'], frame_state['target_sz'])
-        # detect_res, sit = judge_detect_res(detect_net, res_dict['res'][-1], sequences_list[index:], foot_type)
-        result_list.append(track_res)
+        # TODO: if this is to slow you can detect every 5 frames.
+        if frame_id % 5 == 0:
+            detect_res = detect_net.detect_img(frame)
+            detect_res = check_confidence(detect_res)
+            track_res = judge_track_res(track_res, detect_res, foot_type)
+            frame_state['target_pos'], frame_state['target_sz'] = rect_2_cxy_wh(track_res)
+        results = [frame_id] + list(track_res) + [frame_state['score']]
+        result_list.append(results)
         before_frame = frame
         frame_id += 1
-        if show_track_results and frame_id % 10 == 0:
+        if show_track_results and frame_id % 5 == 0:
             # cv2.destroyAllWindows()
             tmp_img = rect_box(frame, track_res, frame_state['score'], frame_id)
             width = tmp_img.shape[1]
@@ -193,9 +207,18 @@ while(cap.isOpened()):
             cv2.namedWindow('results', 0)
             cv2.resizeWindow('results', width, height)
             cv2.imshow('results', tmp_img)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            wait_key = cv2.waitKey(1) & 0xFF
+            if wait_key == ord('q'):
                 cv2.destroyAllWindows()
                 break
+            elif wait_key == ord('s'):
+                while True:
+                    wait_key = cv2.waitKey(1) & 0xFF
+                    if wait_key == ord('q'):
+                        break
+        if save_picture:
+            if not save_pictures(frame, save_img_path, frame_id, frame_bbox):
+                print("Save frame %d wrong" % frame_id)
+                exit()
 
-
-
+save_results(result_list, video_name, save_path)

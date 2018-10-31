@@ -6,6 +6,7 @@ import sys
 
 from mcode.MouseTrack.lib.model.utils.config import cfg
 from mcode.MouseTrack.lib.model.faster_rcnn.faster_rcnn import _fasterRCNN
+from mcode.MouseTrack.lib.model.utils.config import cfg
 
 import torch
 import torch.nn as nn
@@ -18,6 +19,8 @@ import pdb
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
        'resnet152']
 
+import os
+_pretrain_model_path_ = os.path.join(cfg.PROJECT_PATH, 'utils/model/detector')
 
 model_urls = {
   'resnet18': 'https://s3.amazonaws.com/pytorch/models/resnet18-5c106cde.pth',
@@ -222,7 +225,7 @@ def resnet152(pretrained=False):
 
 class resnet(_fasterRCNN):
   def __init__(self, classes, num_layers=101, pretrained=False, class_agnostic=False):
-    self.model_path = '/home/slh/torch/faster-rcnn.pytorch/data/pretrained_model/resnet101_caffe.pth'
+    self.model_path = os.path.join( _pretrain_model_path_ , 'resnet101_caffe.pth' )
     self.dout_base_model = 1024
     self.pretrained = pretrained
     self.class_agnostic = class_agnostic

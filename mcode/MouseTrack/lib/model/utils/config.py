@@ -13,6 +13,7 @@ __C = edict()
 #   from fast_rcnn_config import cfg
 cfg = __C
 
+__C.PROJECT_PATH = osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..'))
 #
 # Training options
 #
@@ -267,7 +268,7 @@ __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..'))
 
 # Data directory
 # TODO data path change, cache and pretrain
-__C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data'))
+__C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'resource/datasets/'))
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'
@@ -398,3 +399,7 @@ def cfg_from_list(cfg_list):
       'type {} does not match original type {}'.format(
         type(value), type(d[subkey]))
     d[subkey] = value
+
+
+if __name__ == '__main__':
+    print(osp.abspath(osp.join(osp.dirname(__file__), '..', '..', '..')))

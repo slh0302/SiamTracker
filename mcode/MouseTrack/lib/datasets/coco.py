@@ -7,9 +7,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from lib.datasets.imdb import imdb
-import lib.datasets.ds_utils as ds_utils
-from lib.model.utils.config import cfg
+from mcode.MouseTrack.lib.datasets.imdb import imdb
+import mcode.MouseTrack.lib.datasets.ds_utils as ds_utils
+from mcode.MouseTrack.lib.model.utils.config import cfg
 import os.path as osp
 import sys
 import os
@@ -20,9 +20,9 @@ import pickle
 import json
 import uuid
 # COCO API
-from lib.pycocotools.coco import COCO
-from lib.pycocotools.cocoeval import COCOeval
-from lib.pycocotools import mask as COCOmask
+from mcode.MouseTrack.lib.pycocotools.coco import COCO
+from mcode.MouseTrack.lib.pycocotools.cocoeval import COCOeval
+from mcode.MouseTrack.lib.pycocotools import mask as COCOmask
 
 class coco(imdb):
   def __init__(self, image_set, year):
