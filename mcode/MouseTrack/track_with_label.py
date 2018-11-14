@@ -17,11 +17,11 @@ __prefix_path__, _ = os.path.split(os.path.realpath(__file__))
 video_name = sys.argv[1]
 
 # 1. init step
-save_picture = False
+save_picture = True
 show_results = True
 save_path = __prefix_path__ + "/resource/results/label/" + video_name.split('.')[0]
 save_img_path = save_path + "/img"
-if not os.path.exists(save_path) and save_picture:
+if not os.path.exists(save_img_path) and save_picture:
     os.makedirs(save_img_path)
 net = init_net(gpus=0, rel_path=__prefix_path__)
 
@@ -32,12 +32,33 @@ if not os.path.exists(video_path):
     exit()
 cap = cv2.VideoCapture(video_path)
 
+if '/' in video_name:
+    video_name = video_name.split('/')[-1]
+
 first_frame = True
 need_start = False
 frame_state = {}
 result_list = []
 frame_id = 1
 frame = []
+
+# re-boot function
+save_file = video_name.split('.')[0] + ".txt"
+tmp_file_path = os.path.join(save_path, save_file)
+if os.path.exists(tmp_file_path) and os.path.getsize(tmp_file_path) > 5:
+    with open(tmp_file_path, 'rb') as f:
+        for line in f:
+            sp = line[:-1].split()
+            id = int(sp[0])
+            x, y , w, h = int(sp[1]), int(sp[2]), int(sp[3]), int(sp[4])
+            scores = float(sp[-1])
+            result_list.append([id, x, y, w, h, scores])
+        frame_id = result_list[-1][0] + 1
+        print("Results Size: %d " % len(result_list))
+        print("Restart at frame %d " % frame_id)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id - 1)
+
+
 while(cap.isOpened()):
     if not need_start:
         ret, frame = cap.read()
@@ -153,11 +174,12 @@ while(cap.isOpened()):
                         before_frame_id = tmp_frame_id
         if not need_start:
             if save_picture:
-                if not save_pictures(frame, save_img_path, frame_id, frame_bbox):
+                if not save_pictures(frame, save_img_path, frame_id, res):
                     print("Save wrong")
                     exit()
+            if frame_id % 100 == 0:
+                save_results(result_list, video_name, save_path)
             frame_id += 1
-
 
 # print(result_list)
 save_results(result_list, video_name, save_path)

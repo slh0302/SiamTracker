@@ -45,6 +45,7 @@ python ./track_with_label.py video_name
 ```
 
 2. How to use:
+
   1). Using mouse to draw the part you want to track. Press 'r/R' to re-draw box, or any other keys to continue(not 'esc' or 'q').
 
   2). Run scripts when tracking failed, and you can draw the correct box again, or press 'n' to skip the frame when no object is found in this frame.

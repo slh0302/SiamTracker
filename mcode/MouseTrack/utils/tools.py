@@ -138,6 +138,22 @@ def save_results(results, video_name, save_path):
         os.makedirs(save_path)
 
     save_file = video_name.split('.')[0] + ".txt"
+    # tmp_file = os.path.join(save_path, save_file)
+    # if os.path.exists(tmp_file):
+    #     with open(tmp_file, 'rb') as f:
+    #         offs = -100
+    #         last = ""
+    #         while True:
+    #             f.seek(offs, 2)
+    #             lines = f.readlines()
+    #             if len(lines) > 1:
+    #                 last = lines[-1]
+    #                 break
+    #             offs *= 2
+    #         frame_id = int(last.split()[0])
+    #         results = results.copy()
+    #         results = results[frame_id: ]
+
     with open(os.path.join(save_path, save_file), 'w') as f:
         for item in results:
             if len(item) < 5:

@@ -25,6 +25,7 @@ else:
 __prefix_path__, _ = os.path.split(os.path.realpath(__file__))
 video_name = sys.argv[1]
 direction = sys.argv[2]
+# modify foot type here, if you need to track any other foot
 if len(sys.argv) > 3:
     foot_type = sys.argv[3]
 else:
