@@ -133,11 +133,14 @@ def judge_track_res(track_res, detect_res, foot_type):
                checked_res = track_res
     return  checked_res
 
-def save_results(results, video_name, save_path):
+def save_results(results, video_name, save_path, label_type=None):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
-    save_file = video_name.split('.')[0] + ".txt"
+    if label_type:
+        save_file = video_name.split('.')[0] + "_" + label_type + ".txt"
+    else:
+        save_file = video_name.split('.')[0] + ".txt"
     # tmp_file = os.path.join(save_path, save_file)
     # if os.path.exists(tmp_file):
     #     with open(tmp_file, 'rb') as f:
@@ -163,6 +166,7 @@ def save_results(results, video_name, save_path):
             w = int(item[3])
             h = int(item[4])
             f.write("%d %d %d %d %d %.2f\n" % (item[0], x, y, w, h, item[-1]))
+
 
 
 def rect_box(img, frame_box, scores=None, frame_id=None):

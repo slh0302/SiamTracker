@@ -15,12 +15,20 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '11,12'
 
 __prefix_path__, _ = os.path.split(os.path.realpath(__file__))
 video_name = sys.argv[1]
+if len(sys.argv) > 2:
+    label_type = sys.argv[2]
+else:
+    label_type = None
 
 # 1. init step
 save_picture = True
 show_results = True
 save_path = __prefix_path__ + "/resource/results/label/" + video_name.split('.')[0]
-save_img_path = save_path + "/img"
+if label_type:
+    save_img_path = save_path + "/img" + "_" + label_type
+else:
+    save_img_path = save_path + "/img"
+
 if not os.path.exists(save_img_path) and save_picture:
     os.makedirs(save_img_path)
 net = init_net(gpus=0, rel_path=__prefix_path__)
@@ -43,7 +51,10 @@ frame_id = 1
 frame = []
 
 # re-boot function
-save_file = video_name.split('.')[0] + ".txt"
+if not label_type:
+    save_file = video_name.split('.')[0] + ".txt"
+else:
+    save_file = video_name.split('.')[0] + "_" + label_type+ ".txt"
 tmp_file_path = os.path.join(save_path, save_file)
 if os.path.exists(tmp_file_path) and os.path.getsize(tmp_file_path) > 5:
     with open(tmp_file_path, 'rb') as f:
@@ -54,6 +65,10 @@ if os.path.exists(tmp_file_path) and os.path.getsize(tmp_file_path) > 5:
             scores = float(sp[-1])
             result_list.append([id, x, y, w, h, scores])
         frame_id = result_list[-1][0] + 1
+        if frame_id > cap.get(7) or frame_id > 10000:
+            print("This video is all labeled or labeled more than 10000, please check !!!!!")
+            exit()
+
         print("Results Size: %d " % len(result_list))
         print("Restart at frame %d " % frame_id)
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id - 1)
@@ -62,6 +77,10 @@ if os.path.exists(tmp_file_path) and os.path.getsize(tmp_file_path) > 5:
 while(cap.isOpened()):
     if not need_start:
         ret, frame = cap.read()
+
+    if frame_id > 10000:
+        print("label length is more than 10000")
+        break
 
     frame_bbox = []
     if first_frame or need_start:
@@ -120,7 +139,7 @@ while(cap.isOpened()):
         continue
 
     frame_state = SiamRPN_track(frame_state, frame)  # track
-    if frame_state['score'] < 0.3:
+    if frame_state['score'] < 0.1:
         # need restart
         cv2.destroyAllWindows()
         need_start = True
@@ -178,7 +197,7 @@ while(cap.isOpened()):
                     print("Save wrong")
                     exit()
             if frame_id % 100 == 0:
-                save_results(result_list, video_name, save_path)
+                save_results(result_list, video_name, save_path, label_type)
             frame_id += 1
 
 # print(result_list)
