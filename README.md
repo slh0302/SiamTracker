@@ -50,8 +50,10 @@
 1. This tracking method is modifed from DaSiamRPN.
 ```
 cd mcode/MouseTrack
-python ./track_with_label.py video_name
+python ./track_with_label.py video_name label_type
+# label type is a string which you might use to distinguish the targets' results in one videos.
 ```
+
 
 2. How to use:
 
@@ -65,7 +67,7 @@ python ./track_with_label.py video_name
     ```
     confidences : 0~1 for confidence of this target, -1 means skipped or failed.
 
-  **4). Tips**: while Tracking scrips running, you can still press 's' to pause the program, and then use 'p' for previous frame or 'n' for next frame, also you can press 'q' to continue runing traking from 'last' frame or press 'r' to re-start manually from the frame you think is not correctly track.
+  **4). Tips: This is very important.**: while Tracking scrips running, you can still press 's' to pause the program, and then use 'p' for previous frame or 'n' for next frame, also you can press 'q' to continue runing traking from 'last' frame or press 'r' to re-start manually from the frame you think is not correctly track.
   
   **5). Tips2: Draw box from top-left to down-right.**
 
