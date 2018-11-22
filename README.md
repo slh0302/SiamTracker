@@ -19,6 +19,15 @@
 
 **Read every tips carefully!**
 
+## 0. New Feature Logs
+
+(According to date arrangement)
+
+11.12: Added restore mechanism, Now you can re-start from where we failed last time.(Save results every 100-frames.)
+
+11.13: Added param `label_type` to track_with_label, than we can generate multi-object label file in one directory. 
+
+
 ## 1. Tracking methods
 
 #### 0. Preparations
@@ -57,7 +66,8 @@ python ./track_with_label.py video_name
     confidences : 0~1 for confidence of this target, -1 means skipped or failed.
 
   **4). Tips**: while Tracking scrips running, you can still press 's' to pause the program, and then use 'p' for previous frame or 'n' for next frame, also you can press 'q' to continue runing traking from 'last' frame or press 'r' to re-start manually from the frame you think is not correctly track.
-
+  
+  **5). Tips2: Draw box from top-left to down-right.**
 
 **Tracking Type 2: With auto-detect:**
 

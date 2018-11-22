@@ -7,3 +7,7 @@ mcode/MouseTrackutils
 SiamRPNBIG.model
 .idea
 __pycache__
+process*.py
+test/
+*.so
+*.o
